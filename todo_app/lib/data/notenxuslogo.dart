@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:todo_app/data/colors.dart';
 
 class NoteNexusLogo extends StatefulWidget {
   final double iconSize;
@@ -44,7 +45,7 @@ class _NoteNexusLogoState extends State<NoteNexusLogo>
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Colors.blue, Colors.purple, Colors.orange],
+                  colors: [LunaColors.deepTeal, LunaColors.oceanDark],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -93,8 +94,8 @@ class _NoteNexusLogoState extends State<NoteNexusLogo>
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
             colors: [
-              Color(0xFF1E293B),
-              Color(0xFF3B82F6),
+              LunaColors.aquaBlue,
+              LunaColors.lightSky,
             ], // slate-800 to blue-600
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,

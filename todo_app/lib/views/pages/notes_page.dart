@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:todo_app/data/colors.dart';
 import 'package:todo_app/data/notenxuslogo.dart';
-import 'package:todo_app/views/services/api.dart'; // Update this path
-import 'dart:io';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:todo_app/views/models/note_model.dart';
+import 'package:todo_app/views/services/api.dart';
 
 class NotesPage extends StatefulWidget {
   const NotesPage({super.key});
@@ -13,23 +13,9 @@ class NotesPage extends StatefulWidget {
 }
 
 class _NotesPageState extends State<NotesPage> {
-  List<Map<String, dynamic>> notes = [];
-  String selectedBranch = 'All';
-  String selectedSemester = 'All';
-  String searchQuery = '';
-
-  final List<String> branches = ['All', 'CSE', 'IT', 'ECE', 'ME'];
-  final List<String> semesters = [
-    'All',
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '6',
-    '7',
-    '8',
-  ];
+  List<Note> notes = [];
+  bool isLoading = true;
+  String error = '';
 
   @override
   void initState() {
@@ -37,166 +23,134 @@ class _NotesPageState extends State<NotesPage> {
     fetchNotes();
   }
 
-  void fetchNotes() async {
+  Future<void> fetchNotes() async {
     try {
-      final apiService = ApiService();
-      final result = await apiService.getAllNotes();
+      await ApiService.loadTokenFromPrefs(); // load token if needed
 
-      if (result != null && result['notes'] is List) {
+      if (ApiService.token == null) {
         setState(() {
-          notes = List<Map<String, dynamic>>.from(result['notes']);
+          error = 'Not authenticated.';
+          isLoading = false;
         });
-      } else {
-        Fluttertoast.showToast(msg: 'Unexpected response from server');
+        return;
       }
+
+      final rawData = await ApiService.getAllNotes();
+      final fetchedNotes = rawData
+          .map<Note>((json) => Note.fromJson(json))
+          .toList();
+
+      setState(() {
+        notes = fetchedNotes;
+        isLoading = false;
+      });
     } catch (e) {
-      Fluttertoast.showToast(msg: 'Failed to fetch notes: $e');
+      setState(() {
+        error = 'Error: $e';
+        isLoading = false;
+      });
     }
   }
 
-  List<Map<String, dynamic>> get filteredNotes {
-    return notes.where((note) {
-      final subject = note['subject'] ?? {};
-      final title = note['title']?.toString().toLowerCase() ?? '';
-
-      final matchesBranch =
-          selectedBranch == 'All' || subject['branch'] == selectedBranch;
-      final matchesSemester =
-          selectedSemester == 'All' ||
-          subject['semester'].toString() == selectedSemester;
-      final matchesSearch = title.contains(searchQuery.toLowerCase());
-
-      return matchesBranch && matchesSemester && matchesSearch;
-    }).toList();
-  }
-
-  void pickFileAndUpload() async {
-    final result = await FilePicker.platform.pickFiles();
-    if (result != null) {
-      File file = File(result.files.single.path!);
-      Fluttertoast.showToast(msg: 'Picked file: ${file.path}');
-      // TODO: Upload file API integration
+  void _openFile(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Could not open file")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color.fromARGB(
+        255,
+        247,
+        250,
+        250,
+      ), // Light pastel background
       appBar: AppBar(
         title: const NoteNexusLogo(),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.upload_file),
-            onPressed: pickFileAndUpload,
-          ),
-        ],
+        backgroundColor: const Color.fromARGB(255, 247, 250, 250),
+
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: Column(
-        children: [
-          Text("Notes"),
-          // Filter section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                DropdownButton<String>(
-                  value: selectedBranch,
-                  items: branches.map((branch) {
-                    return DropdownMenuItem(value: branch, child: Text(branch));
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedBranch = value!;
-                    });
-                  },
-                ),
-                const SizedBox(width: 16),
-                DropdownButton<String>(
-                  value: selectedSemester,
-                  items: semesters.map((semester) {
-                    return DropdownMenuItem(
-                      value: semester,
-                      child: Text('Sem $semester'),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedSemester = value!;
-                    });
-                  },
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Search by title',
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : error.isNotEmpty
+          ? Center(child: Text(error))
+          : notes.isEmpty
+          ? const Center(child: Text('No notes available'))
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+              itemCount: notes.length + 1,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return const Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '📒 Study Notes',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: LunaColors.deepTeal,
                       ),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        searchQuery = value;
-                      });
-                    },
+                  );
+                }
+
+                final note = notes[index - 1];
+                return Container(
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 247, 250, 250),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    title: Text(
+                      note.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Branch: ${note.branch}'),
+                          Text('Semester: ${note.semester}'),
+                          Text('Uploaded: ${note.createdAt.split('T')[0]}'),
+                          if (note.subject != null)
+                            Text('Subject: ${note.subject!['name']}'),
+                          if (note.uploadedBy != null)
+                            Text('Uploader: ${note.uploadedBy!['name']}'),
+                        ],
+                      ),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(
+                        Icons.download_rounded,
+                        color: LunaColors.aquaBlue,
+                      ),
+                      onPressed: () => _openFile(note.fileUrl),
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
-
-          // Notes list
-          Expanded(
-            child: filteredNotes.isEmpty
-                ? const Center(child: Text('No notes found.'))
-                : ListView.builder(
-                    itemCount: filteredNotes.length,
-                    itemBuilder: (context, index) {
-                      final note = filteredNotes[index];
-                      final subject = note['subject'] ?? {};
-                      final uploader = note['uploadedBy'] ?? {};
-                      final title = note['title'] ?? 'Untitled';
-                      final subjectName = subject['name'] ?? 'Unknown Subject';
-                      final branch = subject['branch'] ?? 'Unknown';
-                      final semester = subject['semester'] ?? '';
-                      final uploaderName = uploader['name'] ?? 'Unknown';
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: ListTile(
-                          title: Text(title),
-                          subtitle: Text(
-                            '$subjectName • $branch • Sem $semester\nBy: $uploaderName',
-                          ),
-                          isThreeLine: true,
-                          trailing: IconButton(
-                            icon: const Icon(Icons.download),
-                            onPressed: () {
-                              final url = note['fileUrl'];
-                              if (url != null) {
-                                // TODO: implement download logic with url
-                                Fluttertoast.showToast(
-                                  msg: 'Downloading not implemented yet',
-                                );
-                              } else {
-                                Fluttertoast.showToast(
-                                  msg: 'File URL not found',
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -24,14 +24,8 @@ class _MyAppState extends State<MyApp> {
         return MaterialApp(
           title: 'NoteNexus',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            primarySwatch: Colors.deepPurple,
-            brightness: Brightness.light,
-          ),
-          darkTheme: ThemeData(
-            primarySwatch: Colors.deepPurple,
-            brightness: Brightness.dark,
-          ),
+          theme: ThemeData(brightness: Brightness.light),
+          darkTheme: ThemeData(brightness: Brightness.dark),
           themeMode: mode,
           home: const WelcomePage(),
         );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:todo_app/data/colors.dart';
 import 'package:todo_app/data/notenxuslogo.dart';
 import 'package:todo_app/views/pages/login_page.dart';
 
@@ -8,6 +9,7 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 247, 250, 250),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -53,7 +55,7 @@ class WelcomePage extends StatelessWidget {
                   },
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14.0),
-                    backgroundColor: const Color.fromARGB(255, 139, 58, 233),
+                    backgroundColor: LunaColors.aquaBlue,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12.0),
                     ),

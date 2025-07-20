@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:todo_app/data/colors.dart';
 import 'package:todo_app/views/pages/welcome_page.dart';
+import 'package:todo_app/data/notenxuslogo.dart';
+import 'package:todo_app/views/widget_tree.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -34,7 +37,6 @@ class _SignupPageState extends State<SignupPage> {
 
     try {
       if (!isOtpSent) {
-        // Step 1: Generate OTP
         final otpResponse = await http.post(
           Uri.parse(
             'https://autonomous-kiet-hub.onrender.com/api/v1/users/generate-otp',
@@ -47,10 +49,7 @@ class _SignupPageState extends State<SignupPage> {
           throw Exception('Failed to send OTP: ${otpResponse.body}');
         }
 
-        setState(() {
-          isOtpSent = true; // Show OTP field
-        });
-
+        setState(() => isOtpSent = true);
         showMessage("OTP sent to your email.");
       } else {
         if (otpCode.isEmpty) {
@@ -58,7 +57,6 @@ class _SignupPageState extends State<SignupPage> {
           return;
         }
 
-        // Step 2: Verify OTP
         final verifyResponse = await http.post(
           Uri.parse(
             'https://autonomous-kiet-hub.onrender.com/api/v1/users/verify-otp',
@@ -71,7 +69,6 @@ class _SignupPageState extends State<SignupPage> {
           throw Exception('Invalid or expired OTP');
         }
 
-        // Step 3: Signup
         final signupResponse = await http.post(
           Uri.parse(
             'https://autonomous-kiet-hub.onrender.com/api/v1/users/signup',
@@ -81,32 +78,24 @@ class _SignupPageState extends State<SignupPage> {
             'email': email,
             'name': name,
             'password': password,
-            'role': "STUDENT", // Default role
+            'role': "STUDENT",
           }),
         );
 
         if (signupResponse.statusCode == 201) {
-          final data = jsonDecode(signupResponse.body);
-          print("Signup Success: ${data['token']}");
-
-          // Show a Snackbar
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
                 'OTP verified successfully. Redirecting to Home Page...',
               ),
-              duration: Duration(seconds: 2),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
             ),
           );
-
-          // Wait for the snackbar to show before navigating
           await Future.delayed(const Duration(seconds: 2));
-
-          // Navigate to home page
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const WelcomePage()),
+            MaterialPageRoute(builder: (_) => const WidgetTree()),
           );
         } else {
           final err = jsonDecode(signupResponse.body);
@@ -129,65 +118,111 @@ class _SignupPageState extends State<SignupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Signup")),
+      backgroundColor: const Color.fromARGB(255, 247, 250, 250),
+      appBar: AppBar(
+        title: const NoteNexusLogo(),
+        centerTitle: true,
+        backgroundColor: const Color.fromARGB(255, 247, 250, 250),
+      ),
       body: Center(
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  "Create an Account",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                ),
-                const SizedBox(height: 10),
-
-                // OTP TextField appears only if OTP is sent
-                if (isOtpSent)
-                  TextField(
-                    controller: otpController,
-                    decoration: const InputDecoration(
-                      labelText: 'Enter OTP',
-                      border: OutlineInputBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Text(
+                    "Let’s Build Your ",
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
                     ),
-                    keyboardType: TextInputType.number,
                   ),
-                const SizedBox(height: 20),
-                ElevatedButton(
+                  Text(
+                    "Nexus",
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: LunaColors.aquaBlue,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  prefixIcon: Icon(Icons.person_outline),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock_outline),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (isOtpSent)
+                TextField(
+                  controller: otpController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Enter OTP',
+                    prefixIcon: Icon(Icons.verified_user_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
                   onPressed: isLoading ? null : handleSignupFlow,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: LunaColors.aquaBlue,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
                   child: isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(isOtpSent ? 'Verify & Signup' : 'Send OTP'),
+                      : Text(
+                          isOtpSent ? 'Verify & Sign Up' : 'Send OTP',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

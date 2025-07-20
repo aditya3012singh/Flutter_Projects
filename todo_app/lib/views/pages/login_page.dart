@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:todo_app/data/colors.dart';
+import 'package:todo_app/views/services/auth_helper.dart';
+import 'package:todo_app/views/services/api.dart';
+import 'package:todo_app/views/models/user_model.dart';
 import 'package:todo_app/data/notenxuslogo.dart';
 import 'package:todo_app/views/pages/signup_page.dart';
 import 'package:todo_app/views/widget_tree.dart';
+import 'dart:convert';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,95 +19,95 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController(
-    text: "aditya.2428cseai@gmail.com",
+    text: "aditya.24428cseai@gmail.com",
   );
   final TextEditingController passwordController = TextEditingController(
     text: "123456",
   );
+
   bool isLoading = false;
 
   Future<void> loginUser() async {
     setState(() => isLoading = true);
 
-    final response = await http.post(
-      Uri.parse('https://autonomous-kiet-hub.onrender.com/api/v1/users/signin'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': emailController.text,
-        'password': passwordController.text,
-      }),
-    );
+    try {
+      final response = await ApiService.signin(
+        emailController.text.trim(),
+        passwordController.text.trim(),
+      );
 
-    setState(() => isLoading = false);
+      final token = response['jwt'];
+      final userMap = response['user'];
 
-    final data = jsonDecode(response.body);
-    if (response.statusCode == 200) {
-      final prefs = await SharedPreferences.getInstance();
-      final token = data['token'];
-      if (token != null && token is String) {
-        await prefs.setString('authToken', token);
-      }
+      if (token != null && userMap != null) {
+        final prefs = await SharedPreferences.getInstance();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login successful!'),
+        // Save token using AuthHelper
+        await AuthHelper.setToken(token);
+
+        // Save user data
+        final user = User.fromJson(userMap);
+        await prefs.setString('userData', jsonEncode(user.toJson()));
+
+        Fluttertoast.showToast(
+          msg: 'Login successful!',
           backgroundColor: Colors.green,
-        ),
-      );
+        );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const WidgetTree()),
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const WidgetTree()),
+        );
+      } else {
+        throw Exception("Invalid login response");
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'Login failed: ${e.toString()}',
+        backgroundColor: Colors.red,
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(data['message'] ?? 'Login failed.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const SignupPage()),
-      );
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const NoteNexusLogo(), centerTitle: true),
-      backgroundColor: const Color(0xFFF6F2FF),
+      appBar: AppBar(
+        title: const NoteNexusLogo(),
+        centerTitle: true,
+        backgroundColor: const Color.fromARGB(255, 247, 250, 250),
+      ),
+      backgroundColor: const Color.fromARGB(255, 247, 250, 250),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
+              const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  const Text(
-                    "Login to your ",
+                children: [
+                  Text(
+                    "Welcome Back to the ",
                     style: TextStyle(
-                      fontSize: 26,
+                      fontSize: 24,
                       fontWeight: FontWeight.w500,
                       color: Colors.black87,
                     ),
                   ),
-                  const Text(
+                  Text(
                     "Nexus",
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 18, 8, 151),
+                      color: LunaColors.aquaBlue,
                     ),
                   ),
                 ],
               ),
-
-              const SizedBox(height: 24),
+              const SizedBox(height: 30),
               TextField(
                 controller: emailController,
                 decoration: const InputDecoration(
@@ -134,7 +138,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: ElevatedButton(
                         onPressed: loginUser,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8B3AE9),
+                          backgroundColor: LunaColors.aquaBlue,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
@@ -142,7 +146,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         child: const Text(
                           'Login',
-                          style: TextStyle(fontSize: 16, color: Colors.white),
+                          style: TextStyle(fontSize: 20, color: Colors.white),
                         ),
                       ),
                     ),
@@ -152,7 +156,10 @@ class _LoginPageState extends State<LoginPage> {
                   context,
                   MaterialPageRoute(builder: (_) => const SignupPage()),
                 ),
-                child: const Text("Don't have an account? Sign Up"),
+                child: const Text(
+                  "Don't have an account? Sign Up",
+                  style: TextStyle(color: LunaColors.aquaBlue, fontSize: 16),
+                ),
               ),
             ],
           ),

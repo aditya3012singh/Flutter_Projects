@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:todo_app/data/colors.dart';
 import 'package:todo_app/views/pages/announcements_page.dart';
 import 'package:todo_app/views/pages/dashboard_page.dart';
 import 'package:todo_app/views/pages/events_page.dart';
@@ -14,11 +15,7 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'NoteNexus',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: const HomePage(),
-    );
+    return MaterialApp(title: 'NoteNexus', home: const HomePage());
   }
 }
 
@@ -28,6 +25,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 247, 250, 250),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -49,7 +47,7 @@ class HomePage extends StatelessWidget {
                     HomeCard(
                       title: "Dashboard",
                       icon: Icons.dashboard,
-                      color: Colors.blue,
+                      color: LunaColors.aquaBlue,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -63,20 +61,18 @@ class HomePage extends StatelessWidget {
                     HomeCard(
                       title: "Study Notes",
                       icon: Icons.book,
-                      color: Colors.purple,
+                      color: LunaColors.aquaBlue,
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const NotesPage(),
-                          ),
+                          MaterialPageRoute(builder: (context) => NotesPage()),
                         );
                       },
                     ),
                     HomeCard(
                       title: "Study Tips",
                       icon: Icons.lightbulb,
-                      color: Colors.orange,
+                      color: LunaColors.aquaBlue,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -87,12 +83,12 @@ class HomePage extends StatelessWidget {
                     HomeCard(
                       title: "Events",
                       icon: Icons.event,
-                      color: Colors.green,
+                      color: LunaColors.aquaBlue,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const EventsPage(),
+                            builder: (context) => UserEventsPage(),
                           ),
                         );
                       },
@@ -100,12 +96,12 @@ class HomePage extends StatelessWidget {
                     HomeCard(
                       title: "Announcements",
                       icon: Icons.campaign,
-                      color: Colors.red,
+                      color: LunaColors.aquaBlue,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const AnnouncementsPage(),
+                            builder: (context) => AnnouncementPage(),
                           ),
                         );
                       },
@@ -113,12 +109,12 @@ class HomePage extends StatelessWidget {
                     HomeCard(
                       title: "Files",
                       icon: Icons.folder,
-                      color: Colors.indigo,
+                      color: LunaColors.aquaBlue,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const FilesPage(),
+                            builder: (context) => const UserFilesPage(),
                           ),
                         );
                       },
@@ -151,7 +147,7 @@ class HomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: const Color.fromARGB(255, 247, 250, 250),
       elevation: 2,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
