@@ -5,32 +5,11 @@ class AllProvidersScreen extends StatelessWidget {
 
   final List<Map<String, String>> providers = const [
     {
-      'name': 'Ravi Kumar',
-      'email': 'ravi@mkservices.com',
+      'name': 'Anshu',
+      'email': 'anshu@gmail.com',
       'phone': '+91 9812345678',
       'specialization': 'RO Repair',
       'zone': 'Lucknow Central',
-    },
-    {
-      'name': 'Suman Yadav',
-      'email': 'suman@mkservices.com',
-      'phone': '+91 9876543210',
-      'specialization': 'Installation',
-      'zone': 'Lucknow East',
-    },
-    {
-      'name': 'Manish Verma',
-      'email': 'manish@mkservices.com',
-      'phone': '+91 9988776655',
-      'specialization': 'Maintenance',
-      'zone': 'Kanpur North',
-    },
-    {
-      'name': 'Anita Singh',
-      'email': 'anita@mkservices.com',
-      'phone': '+91 9123456780',
-      'specialization': 'RO Repair',
-      'zone': 'Noida Sector 62',
     },
   ];
 
@@ -52,6 +31,7 @@ class AllProvidersScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           final provider = providers[index];
           return Card(
+            color: Colors.white,
             elevation: 2,
             margin: const EdgeInsets.only(bottom: 16),
             shape: RoundedRectangleBorder(

@@ -13,8 +13,9 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
     _loadTheme();
   }
 
-  void _loadTheme() {
-    final saved = LocalStorage.getString(_themeKey);
+  /// Loads saved theme mode from local storage
+  Future<void> _loadTheme() async {
+    final saved = await LocalStorage.getString(_themeKey); // Now async
     if (saved == 'dark') {
       state = ThemeMode.dark;
     } else if (saved == 'light') {
@@ -24,13 +25,14 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
     }
   }
 
+  /// Toggles theme and saves it
   void toggleTheme() {
     if (state == ThemeMode.light) {
       state = ThemeMode.dark;
-      LocalStorage.setString(_themeKey, 'dark');
+      LocalStorage.setString(_themeKey, 'dark'); // <-- FIXED (2 args)
     } else {
       state = ThemeMode.light;
-      LocalStorage.setString(_themeKey, 'light');
+      LocalStorage.setString(_themeKey, 'light'); // <-- FIXED (2 args)
     }
   }
 }

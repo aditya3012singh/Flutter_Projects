@@ -1,25 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:mk_services/core/services/api_service.dart';
 
-class ServiceHistoryScreen extends StatelessWidget {
+class ServiceHistoryScreen extends StatefulWidget {
   const ServiceHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final List<Map<String, String>> history = [
-      {
-        'date': '15 Jul 2025',
-        'service': 'Maintenance',
-        'technician': 'Ravi Sharma',
-        'status': 'Completed',
-      },
-      {
-        'date': '01 Apr 2025',
-        'service': 'Installation',
-        'technician': 'Ankit Mehta',
-        'status': 'Completed',
-      },
-    ];
+  State<ServiceHistoryScreen> createState() => _ServiceHistoryScreenState();
+}
 
+class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
+  bool _loading = true;
+  List<Map<String, dynamic>> _history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchServiceHistory();
+  }
+
+  Future<void> _fetchServiceHistory() async {
+    try {
+      final data = await ApiService().getMyBookings();
+      setState(() {
+        _history = data;
+        _loading = false;
+      });
+    } catch (e) {
+      print("Error loading service history: $e");
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -30,26 +43,36 @@ class ServiceHistoryScreen extends StatelessWidget {
         backgroundColor: Colors.blue.shade900,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: history.isEmpty
-            ? const Center(
-                child: Text(
-                  'No service history available.',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              )
-            : ListView.separated(
-                itemCount: history.length,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _history.isEmpty
+          ? const Center(
+              child: Text(
+                'No service history available.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _fetchServiceHistory,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: _history.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final record = history[index];
+                  final record = _history[index];
 
-                  final icon = record['service'] == 'Installation'
+                  // Map API fields to UI
+                  final serviceType = record['serviceType'] ?? 'Service';
+                  final serviceDate = record['serviceDate'] ?? '';
+                  final technicianName =
+                      record['technician']?['name'] ?? 'Not Assigned';
+                  final status = record['status'] ?? 'Pending';
+
+                  final icon = serviceType == 'Installation'
                       ? Icons.plumbing
                       : Icons.build;
 
-                  final statusColor = record['status'] == 'Completed'
+                  final statusColor = status == 'COMPLETED'
                       ? Colors.green
                       : Colors.orange;
 
@@ -74,15 +97,17 @@ class ServiceHistoryScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  record['service']!,
+                                  serviceType,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Text('Date: ${record['date']}'),
-                                Text('Technician: ${record['technician']}'),
+                                Text(
+                                  'Date: ${serviceDate.isNotEmpty ? DateTime.parse(serviceDate).toLocal().toString().split(" ").first : "-"}',
+                                ),
+                                Text('Technician: $technicianName'),
                               ],
                             ),
                           ),
@@ -97,7 +122,7 @@ class ServiceHistoryScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              record['status']!,
+                              status,
                               style: TextStyle(
                                 color: statusColor,
                                 fontWeight: FontWeight.bold,
@@ -110,7 +135,7 @@ class ServiceHistoryScreen extends StatelessWidget {
                   );
                 },
               ),
-      ),
+            ),
     );
   }
 }

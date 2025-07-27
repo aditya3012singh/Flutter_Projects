@@ -1,13 +1,14 @@
 class ApiConstants {
   // Base URL (adjust based on environment)
   static const String baseUrl =
-      "http://10.0.2.2:3000"; // Use 3000 if your backend runs on port 3000
+      "https://backend-4osu.onrender.com"; // Use 3000 if your backend runs on port 3000
 
-  // Auth
+  // Authhttp://localhost:${PORT}
   static const String signup = "$baseUrl/api/auth/signup";
   static const String signin = "$baseUrl/api/auth/signin";
   static const String sendOtp = "$baseUrl/api/auth/generate-otp";
   static const String verifyOtp = "$baseUrl/api/auth/verify-otp";
+  static const String genreateOtp = "$baseUrl/api/auth/generate-otp";
   static const String updateProfile = "$baseUrl/api/auth/update-profile";
   static const String deleteUser = "$baseUrl/api/auth/user";
   static const String getUsers = "$baseUrl/api/auth/users";
@@ -63,5 +64,5 @@ class ApiConstants {
   // Dashboard (Admin)
   static const String getDashboardSummary = "$baseUrl/api/dashboard";
 
-  static String getProfile = "$baseUrl/api/users/me";
+  static String getProfile = "$baseUrl/api/auth/me";
 }

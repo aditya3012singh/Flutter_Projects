@@ -55,7 +55,11 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Stock Management")),
+      appBar: AppBar(
+        title: const Text("Stock Management"),
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
+      ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: stockItems.length,
@@ -66,7 +70,7 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
 
           return ListTile(
             leading: CircleAvatar(
-              backgroundColor: Colors.blue.shade100,
+              backgroundColor: Colors.white,
               child: Text(item['name'][0]),
             ),
             title: Text(
@@ -79,10 +83,6 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
                 color: isLow ? Colors.red : Colors.grey[700],
                 fontWeight: isLow ? FontWeight.bold : FontWeight.normal,
               ),
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () => _updateStock(index),
             ),
           );
         },

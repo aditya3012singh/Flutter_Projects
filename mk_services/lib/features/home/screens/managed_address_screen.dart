@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mk_services/providers/auth_provider.dart';
 
-class ManageAddressScreen extends StatelessWidget {
+class ManageAddressScreen extends ConsumerWidget {
   const ManageAddressScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final addressController = TextEditingController();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final authNotifier = ref.read(authProvider.notifier);
+    final user = authState.value;
+
+    final addressController = TextEditingController(text: user?.location ?? '');
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -41,8 +47,26 @@ class ManageAddressScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // Call your address save API here
+                onPressed: () async {
+                  final success = await authNotifier.updateUserProfile(
+                    name: null,
+                    phone: null,
+                    location: addressController.text.trim(),
+                    password: null,
+                  );
+
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Address updated successfully'),
+                      ),
+                    );
+                    Navigator.pop(context);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to update address')),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade900,

@@ -1,80 +1,103 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mk_services/core/models/user_model.dart';
+import 'package:mk_services/core/services/api_service.dart';
 
-class AllCustomersScreen extends StatelessWidget {
+// Provider to fetch all customers (only role=USER)
+final customersProvider = FutureProvider.autoDispose<List<UserModel>>((
+  ref,
+) async {
+  final apiService = ApiService();
+  return await apiService.getAllUsers();
+});
+
+class AllCustomersScreen extends ConsumerWidget {
   const AllCustomersScreen({super.key});
 
-  final List<Map<String, String>> customers = const [
-    {
-      'name': 'Amit Sharma',
-      'email': 'amit@example.com',
-      'phone': '+91 9876543210',
-      'location': 'Lucknow',
-    },
-    {
-      'name': 'Neha Verma',
-      'email': 'neha@example.com',
-      'phone': '+91 9988776655',
-      'location': 'Kanpur',
-    },
-    {
-      'name': 'Rohit Singh',
-      'email': 'rohit@example.com',
-      'phone': '+91 9123456780',
-      'location': 'Noida',
-    },
-    {
-      'name': 'Priya Gupta',
-      'email': 'priya@example.com',
-      'phone': '+91 9345678910',
-      'location': 'Delhi',
-    },
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final customersAsync = ref.watch(customersProvider);
+
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text(
           'All Customers',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.blue.shade900,
         iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: customers.length,
-        itemBuilder: (context, index) {
-          final customer = customers[index];
-          return Card(
-            elevation: 2,
-            margin: const EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.blue.shade700,
-                child: Text(
-                  customer['name']![0],
-                  style: const TextStyle(color: Colors.white),
+      body: customersAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(
+          child: Text(
+            'Failed to load customers: $error',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+        data: (customers) {
+          if (customers.isEmpty) {
+            return const Center(child: Text('No customers found.'));
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: customers.length,
+            itemBuilder: (context, index) {
+              final customer = customers[index];
+              return Card(
+                color: Colors.white,
+                elevation: 3,
+                shadowColor: Colors.grey.shade300,
+                margin: const EdgeInsets.only(bottom: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-              title: Text(
-                customer['name']!,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('📧 ${customer['email']}'),
-                  Text('📞 ${customer['phone']}'),
-                  Text('📍 ${customer['location']}'),
-                ],
-              ),
-              isThreeLine: true,
-            ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.blue.shade700,
+                        radius: 28,
+                        child: Text(
+                          (customer.name?.isNotEmpty == true
+                              ? customer.name![0].toUpperCase()
+                              : '?'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              customer.name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text('📧 ${customer.email}'),
+                            Text('📞 ${customer.phone ?? 'N/A'}'),
+                            Text('📍 ${customer.location ?? 'N/A'}'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         },
       ),

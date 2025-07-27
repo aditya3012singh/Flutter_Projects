@@ -14,28 +14,10 @@ class ProviderDashboardScreen extends StatelessWidget {
         route: '/provider/new-entry',
       ),
       _DashboardTile(
-        title: 'Stock Management',
-        icon: Icons.inventory_2,
-        color: Colors.deepPurple,
-        route: '/provider/stock',
-      ),
-      _DashboardTile(
-        title: 'Customer Service History',
-        icon: Icons.history,
-        color: Colors.teal,
-        route: '/provider/history',
-      ),
-      _DashboardTile(
         title: 'Due Service List',
         icon: Icons.notifications_active,
         color: Colors.orange,
         route: '/provider/due-services',
-      ),
-      _DashboardTile(
-        title: 'Export / Reports',
-        icon: Icons.file_download,
-        color: Colors.green,
-        route: '/provider/reports',
       ),
     ];
 

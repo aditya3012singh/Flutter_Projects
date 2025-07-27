@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:mk_services/core/services/api_service.dart';
 
 class NewServiceEntryScreen extends StatefulWidget {
   const NewServiceEntryScreen({super.key});
@@ -11,24 +12,45 @@ class NewServiceEntryScreen extends StatefulWidget {
 class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _remarksController = TextEditingController();
 
   String? _serviceType;
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
 
-  List<Map<String, dynamic>> _stockItems = [
-    {"name": "Filter", "price": 100},
-    {"name": "Membrane", "price": 250},
-    {"name": "Pipe", "price": 50},
-  ];
+  List<Map<String, dynamic>> _stockItems = [];
+  bool _loadingStock = true;
 
   Map<String, int> _selectedParts = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStockItems();
+  }
+
+  Future<void> _fetchStockItems() async {
+    try {
+      final parts = await ApiService().getAllParts(); // Fetch from backend
+      setState(() {
+        _stockItems = parts;
+        _loadingStock = false;
+      });
+    } catch (e) {
+      print("Error fetching stock: $e");
+      setState(() => _loadingStock = false);
+    }
+  }
 
   int _calculateTotal() {
     int total = 0;
     _selectedParts.forEach((partName, qty) {
-      final item = _stockItems.firstWhere((e) => e['name'] == partName);
-      total += (item['price'] as int) * (qty as int);
+      final item = _stockItems.firstWhere(
+        (e) => e['name'] == partName,
+        orElse: () => {},
+      );
+      final unitCost = (item['unitCost'] ?? 0).toInt();
+      total += unitCost * qty;
     });
     return total;
   }
@@ -56,13 +78,55 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
     }
   }
 
+  Future<void> _submitEntry() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      final usedParts = _selectedParts.entries.where((e) => e.value > 0).map((
+        e,
+      ) {
+        final part = _stockItems.firstWhere((p) => p['name'] == e.key);
+        return {'id': part['id'], 'name': part['name'], 'qty': e.value};
+      }).toList();
+
+      // Example: Send data to backend (create service entry)
+      await ApiService().createServiceEntry(
+        customerName: _formKey.currentState?.fields['Customer Name'] ?? '',
+        phone: _formKey.currentState?.fields['Mobile Number'] ?? '',
+        address: _formKey.currentState?.fields['Address'] ?? '',
+        date: _selectedDate,
+        time: _selectedTime,
+        serviceType: _serviceType ?? '',
+        partsUsed: usedParts,
+        remarks: _remarksController.text.trim(),
+      );
+
+      // Reduce stock for each used part
+      for (var part in usedParts) {
+        await ApiService().reduceStock(
+          part['id'],
+          part['qty'],
+          "Used in service",
+        );
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Service entry submitted successfully")),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Failed to submit: $e")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text("New RO Service Entry"),
-        elevation: 0,
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
       ),
@@ -78,7 +142,7 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                 TextInputType.phone,
                 validator: (value) {
                   if (value == null || value.length != 10) {
-                    return "Enter valid mobile number";
+                    return "Enter a valid 10-digit number";
                   }
                   return null;
                 },
@@ -107,7 +171,7 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                     .toList(),
                 onChanged: (value) => _serviceType = value,
                 validator: (value) =>
-                    value == null ? "Please select service type" : null,
+                    value == null ? "Select a service type" : null,
               ),
               const SizedBox(height: 24),
               Align(
@@ -122,45 +186,82 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              ..._stockItems.map((item) {
-                int qty = _selectedParts[item['name']] ?? 0;
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blue.shade100,
-                      child: Text(item['name'][0]),
+
+              // Stock list
+              _loadingStock
+                  ? const Center(child: CircularProgressIndicator())
+                  : _stockItems.isEmpty
+                  ? const Text("No stock available")
+                  : Column(
+                      children: _stockItems.map((item) {
+                        final name = item['name'] ?? 'Unknown';
+                        final price = (item['unitCost'] ?? 0).toInt();
+                        final availableQty = (item['quantity'] ?? 0).toInt();
+                        int qty = _selectedParts[name] ?? 0;
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.blue.shade100,
+                              child: Text(name[0]),
+                            ),
+                            title: Text(
+                              "$name (₹$price)",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              "Available: $availableQty units",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                  onPressed: () {
+                                    setState(() {
+                                      if (qty > 0) {
+                                        _selectedParts[name] = qty - 1;
+                                      }
+                                    });
+                                  },
+                                ),
+                                Text(
+                                  qty.toString(),
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle_outline),
+                                  onPressed: () {
+                                    setState(() {
+                                      if (qty < availableQty) {
+                                        _selectedParts[name] = qty + 1;
+                                      } else {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "Not enough stock available",
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                    title: Text("${item['name']} (₹${item['price']})"),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
-                          onPressed: () {
-                            setState(() {
-                              if (qty > 0)
-                                _selectedParts[item['name']] = qty - 1;
-                            });
-                          },
-                        ),
-                        Text(
-                          qty.toString(),
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline),
-                          onPressed: () {
-                            setState(() {
-                              _selectedParts[item['name']] = qty + 1;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -193,6 +294,7 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
               ),
               const SizedBox(height: 20),
               TextFormField(
+                controller: _remarksController,
                 decoration: const InputDecoration(
                   labelText: "Service Remarks",
                   prefixIcon: Icon(Icons.comment),
@@ -212,14 +314,7 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // TODO: Send data to backend and reduce stock
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Service Entry Submitted")),
-                    );
-                  }
-                },
+                onPressed: _submitEntry,
                 label: const Text(
                   "Submit Entry",
                   style: TextStyle(fontSize: 16),

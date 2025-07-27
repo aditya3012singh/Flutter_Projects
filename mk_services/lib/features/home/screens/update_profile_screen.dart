@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mk_services/providers/auth_provider.dart';
 
-class UpdateProfileScreen extends StatelessWidget {
+class UpdateProfileScreen extends ConsumerWidget {
   const UpdateProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final emailController = TextEditingController();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userState = ref.watch(authProvider);
+    final authNotifier = ref.read(authProvider.notifier);
+
+    final user = userState.value;
+
+    // Pre-fill fields with current user data
+    final nameController = TextEditingController(text: user?.name ?? '');
+    final phoneController = TextEditingController(text: user?.phone ?? '');
+    final emailController = TextEditingController(text: user?.email ?? '');
+    final passwordController = TextEditingController(); // Optional new password
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -52,13 +61,27 @@ class UpdateProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Email Field
+            // Email Field (not editable but visible)
             TextField(
               controller: emailController,
-              keyboardType: TextInputType.emailAddress,
+              readOnly: true,
               decoration: InputDecoration(
-                labelText: 'Email',
+                labelText: 'Email (cannot change)',
                 prefixIcon: const Icon(Icons.email),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Password Field (optional)
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'New Password (optional)',
+                prefixIcon: const Icon(Icons.lock),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -70,8 +93,28 @@ class UpdateProfileScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // Call your update API here
+                onPressed: () async {
+                  final success = await authNotifier.updateUserProfile(
+                    name: nameController.text,
+                    phone: phoneController.text,
+                    location: null, // Location handled separately
+                    password: passwordController.text.isEmpty
+                        ? null
+                        : passwordController.text,
+                  );
+
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile updated successfully'),
+                      ),
+                    );
+                    Navigator.pop(context);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to update profile')),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade900,

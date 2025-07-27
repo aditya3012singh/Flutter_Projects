@@ -1,17 +1,31 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mk_services/core/services/api_service.dart'; // Assuming your API service is here
 
 class AdminHomeScreen extends StatelessWidget {
   const AdminHomeScreen({super.key});
 
+  Future<void> _logout(BuildContext context) async {
+    try {
+      await ApiService().logout(); // Calls your API service to clear storage
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Logged out successfully")));
+
+      // Redirect to login
+      context.go('/login');
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = [
-      {
-        'title': 'Dashboard',
-        'icon': Icons.dashboard,
-        'route': '/admin/dashboard',
-      },
       {'title': 'Customers', 'icon': Icons.people, 'route': '/admin/customers'},
       {
         'title': 'Technicians',
@@ -39,6 +53,8 @@ class AdminHomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
         title: Row(
           children: [
             Image.asset('assets/images/mk.png', height: 40),
@@ -49,6 +65,13 @@ class AdminHomeScreen extends StatelessWidget {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            tooltip: 'Logout',
+            onPressed: () => _logout(context),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
