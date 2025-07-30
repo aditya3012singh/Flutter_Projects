@@ -15,7 +15,12 @@ class _RequestInstallationScreenState extends State<RequestInstallationScreen> {
   final nameController = TextEditingController();
   final phoneController = TextEditingController();
   final addressController = TextEditingController();
+  final problemController = TextEditingController();
+
   DateTime? selectedDate;
+  String selectedServiceType = 'INSTALLATION';
+
+  final List<String> serviceTypes = ['INSTALLATION', 'REPAIR', 'MAINTENANCE'];
 
   void submit() async {
     if (selectedDate == null) {
@@ -26,16 +31,16 @@ class _RequestInstallationScreenState extends State<RequestInstallationScreen> {
     }
 
     final success = await _api.createBooking(
-      serviceType: 'INSTALLATION',
+      serviceType: selectedServiceType,
       serviceDate: selectedDate!,
       remarks:
-          "Name: ${nameController.text}, Phone: ${phoneController.text}, Address: ${addressController.text}",
+          "Name: ${nameController.text}, Phone: ${phoneController.text}, Address: ${addressController.text}, Problem: ${problemController.text}",
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          success ? "Installation request submitted" : "Submission failed",
+          success ? "Service request submitted" : "Submission failed",
         ),
         backgroundColor: success ? Colors.green : Colors.red,
       ),
@@ -52,7 +57,7 @@ class _RequestInstallationScreenState extends State<RequestInstallationScreen> {
           style: TextStyle(color: Colors.white),
         ),
         backgroundColor: Colors.blue.shade900,
-        iconTheme: IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -89,12 +94,43 @@ class _RequestInstallationScreenState extends State<RequestInstallationScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: selectedServiceType,
+              decoration: const InputDecoration(
+                labelText: 'Select Service Type',
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
+                ),
+              ),
+              dropdownColor: Colors.white,
+              focusColor: Colors.white,
+              items: serviceTypes.map((type) {
+                return DropdownMenuItem(value: type, child: Text(type));
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => selectedServiceType = value);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: problemController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Problem Description',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
             ListTile(
+              tileColor: Colors.white,
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.calendar_today),
               title: Text(
                 selectedDate == null
-                    ? "Select Installation Date"
+                    ? "Select Installation or Service Date"
                     : DateFormat('dd/MM/yyyy').format(selectedDate!),
               ),
               onTap: () async {
@@ -103,8 +139,25 @@ class _RequestInstallationScreenState extends State<RequestInstallationScreen> {
                   firstDate: DateTime.now(),
                   lastDate: DateTime.now().add(const Duration(days: 30)),
                   initialDate: DateTime.now(),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        dialogBackgroundColor:
+                            Colors.white, // <-- makes the picker white
+                        colorScheme: ColorScheme.light(
+                          primary:
+                              Colors.blue.shade900, // header and selected date
+                          onPrimary: Colors.white, // text on selected date
+                          onSurface: Colors.black, // body text color
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
                 );
-                if (picked != null) setState(() => selectedDate = picked);
+                if (picked != null) {
+                  setState(() => selectedDate = picked);
+                }
               },
             ),
             const SizedBox(height: 24),

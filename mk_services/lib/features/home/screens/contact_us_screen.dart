@@ -5,8 +5,7 @@ class ContactUsScreen extends StatelessWidget {
   const ContactUsScreen({super.key});
 
   void _launchMap() async {
-    const String googleMapUrl =
-        'https://www.google.com/maps/search/?api=1&query=MK+Service+Station,+Gomti+Nagar,+Lucknow';
+    const String googleMapUrl = 'https://maps.app.goo.gl/PhtrXWqGrPbLJ2os8';
     if (await canLaunchUrl(Uri.parse(googleMapUrl))) {
       await launchUrl(Uri.parse(googleMapUrl));
     } else {
@@ -28,18 +27,19 @@ class ContactUsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const IconTextRow(icon: Icons.phone, text: '+91 9876543210'),
+            const IconTextRow(icon: Icons.phone, text: '+91 9129020211'),
             const SizedBox(height: 16),
             const IconTextRow(
               icon: Icons.email,
-              text: 'support@mkservices.com',
+              text: 'mkenterprises6088@gmail.com',
             ),
             const SizedBox(height: 16),
             GestureDetector(
               onTap: _launchMap,
               child: const IconTextRow(
                 icon: Icons.location_on,
-                text: 'MK Service Station,\n123, Gomti Nagar, Lucknow',
+                text:
+                    'SHOP address : 1336, AURANGABAD JAGIR, BIJNORE ROAD, LUCKNOW -226002',
                 isLink: true,
               ),
             ),

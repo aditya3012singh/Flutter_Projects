@@ -11,8 +11,14 @@ class NewServiceEntryScreen extends StatefulWidget {
 
 class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _customerNameController = TextEditingController();
+  final TextEditingController _mobileController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
+  final TextEditingController _receivedAmountController =
+      TextEditingController();
 
   String? _serviceType;
   DateTime _selectedDate = DateTime.now();
@@ -20,6 +26,7 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
 
   List<Map<String, dynamic>> _stockItems = [];
   bool _loadingStock = true;
+  bool _submitting = false;
 
   Map<String, int> _selectedParts = {};
 
@@ -31,7 +38,7 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
 
   Future<void> _fetchStockItems() async {
     try {
-      final parts = await ApiService().getAllParts(); // Fetch from backend
+      final parts = await ApiService().getAllParts();
       setState(() {
         _stockItems = parts;
         _loadingStock = false;
@@ -49,8 +56,8 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
         (e) => e['name'] == partName,
         orElse: () => {},
       );
-      final unitCost = (item['unitCost'] ?? 0).toInt();
-      total += unitCost * qty;
+      final unitCost = (item['unitCost'] ?? 0);
+      total += (unitCost is num ? unitCost.toInt() : 0) * qty;
     });
     return total;
   }
@@ -61,12 +68,43 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
       initialDate: _selectedDate,
       firstDate: DateTime(2023),
       lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            dialogBackgroundColor: Colors.white, // ⬅️ Sets white background
+            colorScheme: ColorScheme.light(
+              primary: Colors.blue, // Header color
+              onPrimary: Colors.white, // Text color on header
+              onSurface: Colors.black, // Body text color
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
+
     if (date != null) {
       final time = await showTimePicker(
         context: context,
         initialTime: _selectedTime,
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              dialogBackgroundColor: Colors.white, // ⬅️ Sets white background
+              timePickerTheme: const TimePickerThemeData(
+                backgroundColor: Colors.white,
+              ),
+              colorScheme: const ColorScheme.light(
+                primary: Colors.blue,
+                onPrimary: Colors.white,
+                onSurface: Colors.black,
+              ),
+            ),
+            child: child!,
+          );
+        },
       );
+
       if (time != null) {
         setState(() {
           _selectedDate = date;
@@ -81,31 +119,41 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
   Future<void> _submitEntry() async {
     if (!_formKey.currentState!.validate()) return;
 
-    try {
-      final usedParts = _selectedParts.entries.where((e) => e.value > 0).map((
-        e,
-      ) {
-        final part = _stockItems.firstWhere((p) => p['name'] == e.key);
-        return {'id': part['id'], 'name': part['name'], 'qty': e.value};
-      }).toList();
+    setState(() => _submitting = true);
 
-      // Example: Send data to backend (create service entry)
-      await ApiService().createServiceEntry(
-        customerName: _formKey.currentState?.fields['Customer Name'] ?? '',
-        phone: _formKey.currentState?.fields['Mobile Number'] ?? '',
-        address: _formKey.currentState?.fields['Address'] ?? '',
-        date: _selectedDate,
-        time: _selectedTime,
-        serviceType: _serviceType ?? '',
-        partsUsed: usedParts,
-        remarks: _remarksController.text.trim(),
+    try {
+      final usedParts = _selectedParts.entries
+          .where((e) => (e.value ?? 0) > 0)
+          .map((e) {
+            final part = _stockItems.firstWhere((p) => p['name'] == e.key);
+            return {'id': part['id'], 'quantity': e.value};
+          })
+          .toList();
+
+      final combinedDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
       );
 
-      // Reduce stock for each used part
+      await ApiService().submitReport(
+        customerName: _customerNameController.text.trim(),
+        mobileNumber: _mobileController.text.trim(),
+        address: _addressController.text.trim(),
+        dateTime: combinedDateTime,
+        serviceType: _serviceType ?? '',
+        partsUsed: usedParts,
+        receivedAmount:
+            num.tryParse(_receivedAmountController.text.trim()) ??
+            0, // 👈 Add this
+      );
+
       for (var part in usedParts) {
         await ApiService().reduceStock(
           part['id'],
-          part['qty'],
+          part['quantity'],
           "Used in service",
         );
       }
@@ -118,6 +166,8 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Failed to submit: $e")));
+    } finally {
+      setState(() => _submitting = false);
     }
   }
 
@@ -136,10 +186,15 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
           key: _formKey,
           child: Column(
             children: [
-              _buildTextField("Customer Name", TextInputType.text),
+              _buildTextField(
+                "Customer Name",
+                TextInputType.text,
+                controller: _customerNameController,
+              ),
               _buildTextField(
                 "Mobile Number",
                 TextInputType.phone,
+                controller: _mobileController,
                 validator: (value) {
                   if (value == null || value.length != 10) {
                     return "Enter a valid 10-digit number";
@@ -147,7 +202,11 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                   return null;
                 },
               ),
-              _buildTextField("Address", TextInputType.text),
+              _buildTextField(
+                "Address",
+                TextInputType.text,
+                controller: _addressController,
+              ),
               GestureDetector(
                 onTap: _pickDateTime,
                 child: AbsorbPointer(
@@ -156,12 +215,18 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                     decoration: const InputDecoration(
                       labelText: "Date & Time",
                       prefixIcon: Icon(Icons.calendar_today),
+                      filled: true,
+                      fillColor: Colors.white, // 👈 Set background to white
+                      border:
+                          OutlineInputBorder(), // Optional: add border for better visibility
                     ),
                   ),
                 ),
               ),
+
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
+                dropdownColor: Colors.white,
                 decoration: const InputDecoration(
                   labelText: "Service Type",
                   prefixIcon: Icon(Icons.build),
@@ -186,8 +251,6 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-
-              // Stock list
               _loadingStock
                   ? const Center(child: CircularProgressIndicator())
                   : _stockItems.isEmpty
@@ -195,11 +258,12 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                   : Column(
                       children: _stockItems.map((item) {
                         final name = item['name'] ?? 'Unknown';
-                        final price = (item['unitCost'] ?? 0).toInt();
+                        final unitPrice = (item['unitCost'] ?? 0) as num;
                         final availableQty = (item['quantity'] ?? 0).toInt();
-                        int qty = _selectedParts[name] ?? 0;
+                        final qty = _selectedParts[name] ?? 0;
 
                         return Card(
+                          color: Colors.white,
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           child: ListTile(
                             leading: CircleAvatar(
@@ -207,7 +271,7 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                               child: Text(name[0]),
                             ),
                             title: Text(
-                              "$name (₹$price)",
+                              "$name (₹${unitPrice.toInt()})",
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -294,16 +358,35 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
               ),
               const SizedBox(height: 20),
               TextFormField(
+                controller: _receivedAmountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Received Amount",
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return "Enter received amount";
+                  }
+                  final num? parsed = num.tryParse(value);
+                  if (parsed == null || parsed < 0) {
+                    return "Enter a valid amount";
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 20),
+              TextFormField(
                 controller: _remarksController,
                 decoration: const InputDecoration(
-                  labelText: "Service Remarks",
+                  labelText: "Service Remarks (optional)",
                   prefixIcon: Icon(Icons.comment),
                 ),
                 maxLines: 3,
               ),
               const SizedBox(height: 30),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.send),
+              ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade700,
                   padding: const EdgeInsets.symmetric(
@@ -314,11 +397,27 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                onPressed: _submitEntry,
-                label: const Text(
-                  "Submit Entry",
-                  style: TextStyle(fontSize: 16),
-                ),
+                onPressed: _submitting ? null : _submitEntry,
+                child: _submitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.send, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text(
+                            "Submit Entry",
+                            style: TextStyle(fontSize: 16, color: Colors.white),
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),
@@ -331,10 +430,12 @@ class _NewServiceEntryScreenState extends State<NewServiceEntryScreen> {
     String label,
     TextInputType type, {
     FormFieldValidator<String>? validator,
+    TextEditingController? controller,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
+        controller: controller,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: type == TextInputType.phone

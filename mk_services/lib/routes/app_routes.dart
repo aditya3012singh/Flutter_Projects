@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mk_services/providers/auth_provider.dart';
 
-// Screens
+import 'package:mk_services/providers/auth_provider.dart';
 import 'package:mk_services/features/auth/screens/login_screen.dart';
 import 'package:mk_services/features/auth/screens/signup_Screen.dart';
 import 'package:mk_services/features/auth/screens/splash_screen.dart';
@@ -27,32 +26,26 @@ import 'package:mk_services/features/technician/screens/due_service_list_screen.
 import 'package:mk_services/features/technician/screens/new_service_entry_screen.dart';
 import 'package:mk_services/features/technician/screens/provider_dashboard_screen.dart';
 import 'package:mk_services/features/home/screens/technician_home_screen.dart';
+import 'package:mk_services/features/technician/screens/provider_notifications_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
+  final notifier = ref.watch(authChangeNotifierProvider);
+  final authState = ref.watch(authNotifierProvider);
+
   return GoRouter(
-    initialLocation: '/', // Start at splash
+    initialLocation: '/',
+    refreshListenable: notifier, // 🔥 THIS triggers GoRouter redirects
+
     redirect: (context, state) {
-      final authState = ref.read(authProvider);
       final isLoading = authState.isLoading;
       final user = authState.value;
-
       final location = state.uri.toString();
       final isAuthPage = location == '/login' || location == '/signup';
 
-      // Stay on splash while loading
       if (isLoading) return null;
+      if (authState.hasError) return '/login';
+      if (user == null && !isAuthPage && location != '/') return '/login';
 
-      // Handle backend/auth errors
-      if (authState.hasError) {
-        return '/login';
-      }
-
-      // Not logged in → send to login (unless already on login/signup/splash)
-      if (user == null && !isAuthPage && location != '/') {
-        return '/login';
-      }
-
-      // Logged in but trying to access login/signup → send to dashboard based on role
       if (user != null && isAuthPage) {
         final role = user.role?.toLowerCase() ?? '';
         if (role == 'admin') return '/admin/home';
@@ -60,37 +53,28 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         return '/user/main';
       }
 
-      // Logged in and on splash/root → send to correct dashboard
       if (user != null && (location == '/' || location == '/home')) {
         final role = user.role?.toLowerCase() ?? '';
         if (role == 'admin') return '/admin/home';
-        if (role == 'provider') return '/provider/dashboard';
+        if (role == 'technician') return '/provider/dashboard';
         return '/user/main';
       }
 
-      return null; // No redirect
+      return null;
     },
 
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
-
-      // Auth
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/signup',
         builder: (context, state) => const SignupScreen(),
       ),
-
-      // User
       GoRoute(path: '/home', builder: (context, state) => const WelcomePage()),
       GoRoute(
         path: '/user/main',
         builder: (context, state) => const UserMainScreen(),
       ),
-      // GoRoute(
-      //   path: '/user/my-product',
-      //   builder: (context, state) => const MyProductScreen(),
-      // ),
       GoRoute(
         path: '/user/service-history',
         builder: (context, state) => const ServiceHistoryScreen(),
@@ -111,8 +95,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/user/spare-parts',
         builder: (context, state) => const SparePartsScreen(),
       ),
-
-      // Bookings
       GoRoute(
         path: '/booking/domestic',
         builder: (context, state) => const RequestInstallationScreen(),
@@ -121,8 +103,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/booking/industrial',
         builder: (context, state) => const ServiceRequestScreen(),
       ),
-
-      // Provider
       GoRoute(
         path: '/technician/home',
         builder: (context, state) => const TechnicianHomeScreen(),
@@ -143,15 +123,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/provider/due-services',
         builder: (context, state) => const DueServiceListScreen(),
       ),
-      // Admin
       GoRoute(
         path: '/admin/home',
         builder: (context, state) => const AdminHomeScreen(),
       ),
-      // GoRoute(
-      //   path: '/admin/dashboard',
-      //   builder: (context, state) => const AdminDashboardScreen(),
-      // ),
       GoRoute(
         path: '/admin/customers',
         builder: (context, state) => const AllCustomersScreen(),
@@ -175,6 +150,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/requests',
         builder: (context, state) => const ServiceRequestScreentwo(),
+      ),
+      GoRoute(
+        path: '/provider/notifications',
+        builder: (context, state) => const ProviderNotificationsScreen(),
       ),
     ],
 

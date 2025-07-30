@@ -8,8 +8,8 @@ class UserProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authProvider);
-    final authNotifier = ref.read(authProvider.notifier);
+    final authState = ref.watch(authNotifierProvider);
+    final authNotifier = ref.read(authNotifierProvider.notifier);
     final user = authState.value;
 
     if (authState.isLoading) {
@@ -21,6 +21,7 @@ class UserProfileScreen extends ConsumerWidget {
     }
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: RefreshIndicator(
         onRefresh: () async => await authNotifier.loadUser(),
         child: CustomScrollView(
@@ -41,6 +42,7 @@ class UserProfileScreen extends ConsumerWidget {
                     collapseMode: CollapseMode.parallax,
                     background: Stack(
                       fit: StackFit.expand,
+
                       children: [
                         // Dynamic fading gradient
                         Opacity(
@@ -70,6 +72,7 @@ class UserProfileScreen extends ConsumerWidget {
                                 vertical: 30,
                               ),
                               child: Card(
+                                color: Colors.white,
                                 elevation: 10,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
@@ -189,7 +192,7 @@ class UserProfileScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 32),
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      await ref.read(authProvider.notifier).logout();
+                      await ref.read(authNotifierProvider.notifier).logout();
                       context.go('/login');
                     },
                     style: ElevatedButton.styleFrom(
@@ -234,6 +237,7 @@ class _ProfileTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: Colors.white,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,

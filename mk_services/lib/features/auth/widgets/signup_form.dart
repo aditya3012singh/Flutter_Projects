@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/utils/validators.dart';
+import 'package:mk_services/core/services/api_service.dart';
+import '../../../core/utils/validators.dart'; // 👈 Make sure you have a toast helper
 import '../controllers/auth_controller.dart';
 
 class SignupForm extends ConsumerStatefulWidget {
@@ -19,28 +20,45 @@ class _SignupFormState extends ConsumerState<SignupForm> {
 
   bool _isLoading = false;
 
-  void _submit() async {
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    final success = await ref
-        .read(authControllerProvider)
-        .requestOtp(_emailController.text.trim());
+    try {
+      final success = await ref
+          .read(authControllerProvider)
+          .requestOtp(_emailController.text.trim());
 
-    setState(() => _isLoading = false);
+      if (!mounted) return;
 
-    if (success && mounted) {
-      Navigator.pushNamed(
-        context,
-        '/verify-otp',
-        arguments: {
-          'email': _emailController.text.trim(),
-          'name': _nameController.text.trim(),
-          'phone': _phoneController.text.trim(),
-          'password': _passwordController.text.trim(),
-        },
-      );
+      if (success) {
+        Navigator.pushNamed(
+          context,
+          '/verify-otp',
+          arguments: {
+            'email': _emailController.text.trim(),
+            'name': _nameController.text.trim(),
+            'phone': _phoneController.text.trim(),
+            'password': _passwordController.text.trim(),
+          },
+        );
+      } else {
+        showToast("Failed to send OTP. Try again.");
+      }
+    } catch (e) {
+      showToast("Something went wrong: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -48,19 +66,21 @@ class _SignupFormState extends ConsumerState<SignupForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Sign Up")),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
+              // Name
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Name'),
                 validator: Validators.nameValidator,
               ),
               const SizedBox(height: 16),
+
+              // Email
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(labelText: 'Email'),
@@ -68,6 +88,8 @@ class _SignupFormState extends ConsumerState<SignupForm> {
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
+
+              // Phone
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(labelText: 'Phone'),
@@ -75,6 +97,8 @@ class _SignupFormState extends ConsumerState<SignupForm> {
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 16),
+
+              // Password
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
@@ -82,11 +106,16 @@ class _SignupFormState extends ConsumerState<SignupForm> {
                 validator: Validators.passwordValidator,
               ),
               const SizedBox(height: 24),
+
+              // Submit button
               _isLoading
                   ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                      onPressed: _submit,
-                      child: const Text('Send OTP'),
+                  : SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _submit,
+                        child: const Text('Send OTP'),
+                      ),
                     ),
             ],
           ),

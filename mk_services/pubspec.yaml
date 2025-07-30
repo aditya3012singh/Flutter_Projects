@@ -44,6 +44,17 @@ dependencies:
   url_launcher: ^6.3.2
   fluttertoast: ^8.2.12
   pinput: ^5.0.1
+  shimmer: ^3.0.0
+  timeago: ^3.7.1
+  toastify: ^0.0.2
+  csv: ^6.0.0
+  path_provider: ^2.1.5
+  permission_handler: ^12.0.1
+  share_plus: ^11.0.0
+  open_filex: ^4.7.0
+  device_info_plus: ^11.5.0
+  flutter_launcher_icons: ^0.14.4
+  
 
 dev_dependencies:
   flutter_test:
@@ -52,7 +63,10 @@ dev_dependencies:
   json_serializable: ^6.7.1
 
 
-  
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/mk.png"
 
 
   # The following adds the Cupertino Icons font to your application.

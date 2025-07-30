@@ -7,8 +7,8 @@ class UpdateProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userState = ref.watch(authProvider);
-    final authNotifier = ref.read(authProvider.notifier);
+    final userState = ref.watch(authNotifierProvider);
+    final authNotifier = ref.read(authNotifierProvider.notifier);
 
     final user = userState.value;
 

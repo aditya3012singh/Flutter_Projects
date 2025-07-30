@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mk_services/core/services/api_service.dart';
+import 'package:shimmer/shimmer.dart';
 
 class DueServiceListScreen extends StatefulWidget {
   const DueServiceListScreen({super.key});
@@ -10,7 +11,7 @@ class DueServiceListScreen extends StatefulWidget {
 }
 
 class _DueServiceListScreenState extends State<DueServiceListScreen> {
-  List<Map<String, dynamic>> _dueCustomers = [];
+  List<Map<String, dynamic>> _dueBookings = [];
   bool _loading = true;
 
   @override
@@ -21,9 +22,9 @@ class _DueServiceListScreenState extends State<DueServiceListScreen> {
 
   Future<void> _fetchDueServices() async {
     try {
-      final data = await ApiService().getDueServices();
+      final bookings = await ApiService().getDueServices();
       setState(() {
-        _dueCustomers = data;
+        _dueBookings = bookings;
         _loading = false;
       });
     } catch (e) {
@@ -44,52 +45,218 @@ class _DueServiceListScreenState extends State<DueServiceListScreen> {
         foregroundColor: Colors.white,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _dueCustomers.isEmpty
+          ? ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Shimmer.fromColors(
+                    baseColor: Colors.grey.shade300,
+                    highlightColor: Colors.grey.shade100,
+                    child: Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const CircleAvatar(
+                              radius: 22,
+                              backgroundColor: Colors.white,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    height: 18,
+                                    width: 100,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    height: 14,
+                                    width: 150,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    height: 14,
+                                    width: 200,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    height: 14,
+                                    width: 180,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    height: 14,
+                                    width: 160,
+                                    color: Colors.white,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )
+          : _dueBookings.isEmpty
           ? const Center(child: Text("No due services found"))
           : RefreshIndicator(
               onRefresh: _fetchDueServices,
               child: ListView.separated(
                 padding: const EdgeInsets.all(16),
-                itemCount: _dueCustomers.length,
+                itemCount: _dueBookings.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final customer = _dueCustomers[index];
+                  final booking = _dueBookings[index];
+                  final user = booking['user'] ?? {};
 
-                  final lastDate = DateTime.parse(
-                    customer['serviceDate'] ?? DateTime.now().toString(),
+                  final lastServiceDateStr =
+                      booking['serviceDate'] ??
+                      DateTime.now().toIso8601String();
+                  final lastServiceDate =
+                      DateTime.tryParse(lastServiceDateStr) ?? DateTime.now();
+                  final nextDueDate = lastServiceDate.add(
+                    const Duration(days: 90),
                   );
-                  final nextDue = lastDate.add(const Duration(days: 90));
 
-                  final isOverdue = DateTime.now().isAfter(nextDue);
+                  final isOverdue = DateTime.now().isAfter(nextDueDate);
+                  final status = booking['status'] ?? 'UNKNOWN';
+
+                  Icon statusIcon;
+                  String statusLabel;
+                  Color statusColor;
+
+                  if (status == 'COMPLETED') {
+                    statusIcon = const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                    );
+                    statusLabel = "Completed";
+                    statusColor = Colors.green;
+                  } else if (status == 'IN_PROGRESS') {
+                    statusIcon = const Icon(
+                      Icons.timelapse,
+                      color: Colors.orange,
+                    );
+                    statusLabel = "In Progress";
+                    statusColor = Colors.orange;
+                  } else {
+                    statusIcon = const Icon(
+                      Icons.info_outline,
+                      color: Colors.grey,
+                    );
+                    statusLabel = "Pending";
+                    statusColor = Colors.grey;
+                  }
 
                   return Card(
                     color: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    elevation: 3,
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        child: Text(customer['user']?['name']?[0] ?? "?"),
-                      ),
-                      title: Text(customer['user']?['name'] ?? "Unknown"),
-                      subtitle: Column(
+                    elevation: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("📞 ${customer['user']?['phone'] ?? 'N/A'}"),
-                          Text(
-                            "🧾 Service Type: ${customer['serviceType'] ?? 'N/A'}",
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor: Colors.blue.shade100,
+                            child: Text(
+                              (user['name']?.toString().trim().isNotEmpty ??
+                                      false)
+                                  ? user['name']
+                                        .toString()
+                                        .trim()[0]
+                                        .toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
                           ),
-                          Text(
-                            "📅 Last Service: ${dateFormat.format(lastDate)}",
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  user['name']?.toString().trim() ?? "Unknown",
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text("📞 ${user['phone'] ?? 'N/A'}"),
+                                Text(
+                                  "📍 Address: ${user['location'] ?? 'N/A'}",
+                                ),
+                                Text(
+                                  "🧾 Service Type: ${booking['serviceType'] ?? 'N/A'}",
+                                ),
+                                Text(
+                                  "📅 Last Service: ${dateFormat.format(lastServiceDate)}",
+                                ),
+                                Text(
+                                  "📅 Next Due: ${dateFormat.format(nextDueDate)}",
+                                ),
+                                if (isOverdue)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Row(
+                                      children: const [
+                                        Icon(
+                                          Icons.warning,
+                                          color: Colors.red,
+                                          size: 18,
+                                        ),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          "Overdue!",
+                                          style: TextStyle(
+                                            color: Colors.red,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                          Text("📅 Next Due: ${dateFormat.format(nextDue)}"),
+                          Column(
+                            children: [
+                              statusIcon,
+                              const SizedBox(height: 6),
+                              Text(
+                                statusLabel,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                      trailing: isOverdue
-                          ? const Icon(Icons.warning, color: Colors.red)
-                          : const Icon(Icons.check_circle, color: Colors.green),
                     ),
                   );
                 },

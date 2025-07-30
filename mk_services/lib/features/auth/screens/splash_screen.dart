@@ -17,7 +17,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     // Check auth state after a small delay (so logo is visible)
     Future.delayed(const Duration(seconds: 2), () {
-      final authState = ref.read(authProvider);
+      final authState = ref.read(authNotifierProvider);
 
       if (!mounted) return;
 

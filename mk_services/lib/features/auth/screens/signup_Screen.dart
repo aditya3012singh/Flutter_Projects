@@ -166,6 +166,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
                     // Role Selector
                     DropdownButtonFormField<String>(
+                      dropdownColor: Colors.white,
                       value: _selectedRole,
                       decoration: const InputDecoration(
                         labelText: "Select Role",

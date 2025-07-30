@@ -17,10 +17,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   bool isLoading = true;
 
   final List<String> carouselImages = [
-    'assets/images/image1.png',
-    'assets/images/image2.png',
-    'assets/images/image3.png',
-    'assets/images/image4.png',
+    'assets/images/ro.png',
+    'assets/images/i12.png',
+    'assets/images/i6.png',
+    'assets/images/i2.png',
   ];
 
   final List<Map<String, dynamic>> services = [
@@ -44,21 +44,30 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
   Future<void> fetchUserProfile() async {
     try {
-      final UserModel? profile = await _apiService.getProfile();
+      print("Fetching profile...");
+      final UserModel? profile = await _apiService.getProfile().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => null,
+      );
+      print("Profile fetched: $profile");
+
       if (profile == null) {
-        // Token expired or not found → redirect to login
-        if (mounted) context.go('/login');
+        Future.microtask(() {
+          if (mounted) context.go('/login');
+        });
         return;
       }
-      setState(() {
-        userName = profile.name ?? 'User';
-        isLoading = false;
-      });
-    } catch (e) {
+
       if (mounted) {
-        // On error, force logout
-        context.go('/login');
+        setState(() {
+          userName = profile.name ?? 'User';
+          isLoading = false;
+        });
       }
+    } catch (_) {
+      Future.microtask(() {
+        if (mounted) context.go('/login');
+      });
     }
   }
 
@@ -74,15 +83,16 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Welcome Text
                     Text(
                       'Hi ${userName ?? "User"},',
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Text(
-                      'Welcome to MK Service Station',
+                      'Welcome to MK Enterprises',
                       style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                     const SizedBox(height: 16),
@@ -90,7 +100,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                     // Carousel
                     CarouselSlider(
                       options: CarouselOptions(
-                        height: 140,
+                        height: 150,
                         autoPlay: true,
                         enlargeCenterPage: true,
                         viewportFraction: 1.0,
@@ -108,21 +118,21 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Responsive Grid
+                    // Grid of services
                     LayoutBuilder(
                       builder: (context, constraints) {
                         int crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
                         return GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
+                          itemCount: services.length,
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: crossAxisCount,
                                 crossAxisSpacing: 16,
                                 mainAxisSpacing: 16,
-                                childAspectRatio: 1.1,
+                                childAspectRatio: 1.0,
                               ),
-                          itemCount: services.length,
                           itemBuilder: (context, index) {
                             final item = services[index];
                             return _HomeServiceTile(
@@ -135,14 +145,13 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                         );
                       },
                     ),
-
                     const SizedBox(height: 24),
 
-                    // Full-width bottom image
+                    // Bottom image
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.asset(
-                        'assets/images/image1.png',
+                        'assets/images/i20.png',
                         fit: BoxFit.cover,
                         width: double.infinity,
                       ),
@@ -191,8 +200,8 @@ class _HomeServiceTile extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 40, color: Colors.blue.shade900),
-            const SizedBox(height: 14),
+            Icon(icon, size: 40, color: Colors.blue.shade800),
+            const SizedBox(height: 12),
             Text(
               label,
               textAlign: TextAlign.center,

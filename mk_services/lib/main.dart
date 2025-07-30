@@ -18,7 +18,7 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
     final router = ref.watch(goRouterProvider);
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authNotifierProvider);
 
     if (authState.isLoading) {
       return const MaterialApp(

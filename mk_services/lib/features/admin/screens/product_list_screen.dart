@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:mk_services/core/services/api_service.dart';
 
 class AdminProductListScreen extends StatefulWidget {
@@ -20,8 +23,17 @@ class _AdminProductListScreenState extends State<AdminProductListScreen> {
 
   void _reloadProducts() {
     setState(() {
-      _productsFuture = _apiService.getAllParts();
+      _productsFuture = Future.delayed(
+        const Duration(milliseconds: 200),
+        () => _apiService.getAllParts(),
+      );
     });
+
+    Fluttertoast.showToast(
+      msg: "Product list refreshed",
+      backgroundColor: Colors.blueAccent,
+      textColor: Colors.white,
+    );
   }
 
   void _showAddProductDialog() {
@@ -77,19 +89,22 @@ class _AdminProductListScreenState extends State<AdminProductListScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
+              elevation: 6,
+              shadowColor: Colors.black87,
             ),
             onPressed: () async {
+              HapticFeedback.mediumImpact();
+
               final name = nameController.text.trim();
               final desc = descController.text.trim();
               final price = double.tryParse(priceController.text) ?? 0;
               final qty = int.tryParse(qtyController.text) ?? 0;
 
               if (name.isEmpty || price <= 0 || qty < 0) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter valid product details'),
-                    backgroundColor: Colors.redAccent,
-                  ),
+                Fluttertoast.showToast(
+                  msg: "Please enter valid product details",
+                  backgroundColor: Colors.redAccent,
+                  textColor: Colors.white,
                 );
                 return;
               }
@@ -104,29 +119,74 @@ class _AdminProductListScreenState extends State<AdminProductListScreen> {
                   quantity: qty,
                 );
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(result['message']),
-                    backgroundColor: result['success']
-                        ? Colors.green
-                        : Colors.redAccent,
-                  ),
-                );
-
                 if (result['success']) {
-                  _reloadProducts(); // Refresh product list
+                  Fluttertoast.showToast(
+                    msg: "Product added successfully!",
+                    backgroundColor: Colors.green,
+                    textColor: Colors.white,
+                  );
+                  _reloadProducts();
+                } else {
+                  Fluttertoast.showToast(
+                    msg: result['message'],
+                    backgroundColor: Colors.redAccent,
+                    textColor: Colors.white,
+                  );
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error: $e'),
-                    backgroundColor: Colors.redAccent,
-                  ),
+                Fluttertoast.showToast(
+                  msg: 'Error: $e',
+                  backgroundColor: Colors.redAccent,
+                  textColor: Colors.white,
                 );
               }
             },
-
             child: const Text('Add', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(String partId, String partName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Product"),
+        content: Text("Are you sure you want to delete \"$partName\"?"),
+        actions: [
+          TextButton(
+            child: const Text("Cancel"),
+            onPressed: () => Navigator.pop(context),
+          ),
+          TextButton(
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              try {
+                final success = await _apiService.deletePart(partId);
+                if (success) {
+                  Fluttertoast.showToast(
+                    msg: "Product deleted successfully!",
+                    backgroundColor: Colors.green,
+                    textColor: Colors.white,
+                  );
+                  _reloadProducts();
+                } else {
+                  Fluttertoast.showToast(
+                    msg: "Failed to delete product",
+                    backgroundColor: Colors.redAccent,
+                    textColor: Colors.white,
+                  );
+                }
+              } catch (e) {
+                Fluttertoast.showToast(
+                  msg: 'Error: $e',
+                  backgroundColor: Colors.redAccent,
+                  textColor: Colors.white,
+                );
+              }
+            },
           ),
         ],
       ),
@@ -144,23 +204,42 @@ class _AdminProductListScreenState extends State<AdminProductListScreen> {
       decoration: InputDecoration(
         hintText: hint,
         filled: true,
-        fillColor: Colors.white, // Background color
+        fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
         ),
-
-        // Border when not focused
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
         ),
-
-        // Border when focused
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
         ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerLoader() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: ListView.builder(
+        itemCount: 6,
+        itemBuilder: (context, index) {
+          return Shimmer.fromColors(
+            baseColor: Colors.grey.shade300,
+            highlightColor: Colors.grey.shade100,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -177,54 +256,65 @@ class _AdminProductListScreenState extends State<AdminProductListScreen> {
         backgroundColor: Colors.blue.shade900,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _productsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _reloadProducts();
+          await Future.delayed(const Duration(milliseconds: 300));
+        },
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _productsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildShimmerLoader();
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
 
-          final products = snapshot.data ?? [];
-          if (products.isEmpty) {
-            return const Center(child: Text('No products available.'));
-          }
+            final products = snapshot.data ?? [];
+            if (products.isEmpty) {
+              return const Center(child: Text('No products available.'));
+            }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final p = products[index];
-              return Card(
-                color: Colors.white,
-                elevation: 3,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ListTile(
-                  title: Text(
-                    p['name'] ?? '',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: products.length,
+              itemBuilder: (context, index) {
+                final p = products[index];
+                return Card(
+                  color: Colors.white,
+                  elevation: 3,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    title: Text(
+                      p['name'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Stock: ${p['quantity']} pcs\n₹${(p['unitCost'] ?? 0).toStringAsFixed(2)}',
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.redAccent),
+                      onPressed: () => _confirmDelete(p['id'], p['name']),
                     ),
                   ),
-                  subtitle: Text(
-                    'Stock: ${p['quantity']} pcs\n₹${(p['unitCost'] ?? 0).toStringAsFixed(2)}',
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddProductDialog,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Add Product', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue.shade700,
+        elevation: 6,
       ),
     );
   }

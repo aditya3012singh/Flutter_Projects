@@ -17,7 +17,6 @@ class _UserMainScreenState extends State<UserMainScreen> {
   final List<Widget> _pages = const [
     UserHomeScreen(),
     UserBookingsScreen(),
-    NotificationScreen(),
     UserProfileScreen(),
   ];
 
@@ -31,7 +30,7 @@ class _UserMainScreenState extends State<UserMainScreen> {
             Image.asset('assets/images/mk.png', height: 30),
             const SizedBox(width: 10),
             const Text(
-              "SERVICE STATION",
+              "Enterprises",
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -54,10 +53,6 @@ class _UserMainScreenState extends State<UserMainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),
             label: 'Bookings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Notification',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],

@@ -7,8 +7,8 @@ class ManageAddressScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authProvider);
-    final authNotifier = ref.read(authProvider.notifier);
+    final authState = ref.watch(authNotifierProvider);
+    final authNotifier = ref.read(authNotifierProvider.notifier);
     final user = authState.value;
 
     final addressController = TextEditingController(text: user?.location ?? '');

@@ -1,25 +1,52 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mk_services/core/services/api_service.dart'; // Assuming your API service is here
+import 'package:mk_services/core/services/api_service.dart';
+import 'package:mk_services/providers/auth_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
-class AdminHomeScreen extends StatelessWidget {
+class AdminHomeScreen extends ConsumerStatefulWidget {
   const AdminHomeScreen({super.key});
 
-  Future<void> _logout(BuildContext context) async {
-    try {
-      await ApiService().logout(); // Calls your API service to clear storage
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Logged out successfully")));
+  @override
+  ConsumerState<AdminHomeScreen> createState() => _AdminHomeScreenState();
+}
 
-      // Redirect to login
-      context.go('/login');
+class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
+  final ApiService _apiService = ApiService();
+  Map<String, dynamic>? summary;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSummary();
+  }
+
+  Future<void> _fetchSummary() async {
+    try {
+      final data = await _apiService.getDashboardSummary();
+      setState(() {
+        summary = data;
+        isLoading = false;
+      });
     } catch (e) {
+      setState(() => isLoading = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
+      ).showSnackBar(SnackBar(content: Text('Failed to load summary: $e')));
+    }
+  }
+
+  Future<void> _logout() async {
+    try {
+      await _apiService.logout();
+      ref
+          .read(authNotifierProvider.notifier)
+          .logout(); // triggers GoRouter redirect
+      showToast("Logged out successfully");
+    } catch (e) {
+      showToast("Logout failed: $e");
     }
   }
 
@@ -69,57 +96,126 @@ class AdminHomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.redAccent),
             tooltip: 'Logout',
-            onPressed: () => _logout(context),
+            onPressed: _logout,
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Center(
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: items.map((item) {
-              return GestureDetector(
-                onTap: () => context.push(item['route'] as String),
-                child: Container(
-                  width: MediaQuery.of(context).size.width / 2 - 24,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 8,
-                        offset: const Offset(2, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
                     children: [
-                      Icon(
-                        item['icon'] as IconData,
-                        size: 40,
-                        color: Colors.blueAccent,
+                      _buildSummaryCard(
+                        "Today's Services",
+                        summary?['totalServicesToday'],
+                        Icons.today,
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        item['title'] as String,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
+                      _buildSummaryCard(
+                        "Pending Services",
+                        summary?['pendingServices'],
+                        Icons.assignment_late,
+                      ),
+                      _buildSummaryCard(
+                        "Due Services",
+                        summary?['dueServices'],
+                        Icons.history,
+                      ),
+                      _buildSummaryCard(
+                        "Low Stock Items",
+                        (summary?['lowStockAlert'] as List?)?.length ?? 0,
+                        Icons.warning_amber,
                       ),
                     ],
                   ),
-                ),
-              );
-            }).toList(),
+                  const SizedBox(height: 24),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: items.map((item) {
+                      return GestureDetector(
+                        onTap: () => context.push(item['route'] as String),
+                        child: Container(
+                          width: MediaQuery.of(context).size.width / 2 - 24,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(2, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                item['icon'] as IconData,
+                                size: 40,
+                                color: Colors.blueAccent,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                item['title'] as String,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, dynamic count, IconData icon) {
+    return Container(
+      width: MediaQuery.of(context).size.width / 2 - 24,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 32, color: Colors.blue.shade900),
+          const SizedBox(height: 10),
+          Text(
+            '$count',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+        ],
       ),
     );
   }
+}
+
+void showToast(String message) {
+  Fluttertoast.showToast(
+    msg: message,
+    toastLength: Toast.LENGTH_SHORT,
+    gravity: ToastGravity.BOTTOM,
+    backgroundColor: Colors.black87,
+    textColor: Colors.white,
+    fontSize: 16.0,
+  );
 }

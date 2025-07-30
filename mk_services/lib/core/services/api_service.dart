@@ -1,9 +1,22 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mk_services/core/constants/api_constants.dart';
 import 'package:mk_services/core/models/user_model.dart';
 import 'package:mk_services/storage/local_storage.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+void showToast(String message) {
+  Fluttertoast.showToast(
+    msg: message,
+    toastLength: Toast.LENGTH_SHORT,
+    gravity: ToastGravity.BOTTOM,
+    backgroundColor: Colors.black87,
+    textColor: Colors.white,
+    fontSize: 16.0,
+  );
+}
 
 class ApiService {
   final http.Client _client;
@@ -18,13 +31,20 @@ class ApiService {
     );
 
     final data = jsonDecode(response.body);
+
     if (response.statusCode == 200) {
       final token = data['token'];
       if (token != null) await LocalStorage.saveToken(token);
       return UserModel.fromJson(data['user']);
-    } else {
-      throw Exception(data['message'] ?? 'Login failed');
     }
+
+    final errorMessage = data['message']?.toLowerCase() ?? '';
+
+    if (errorMessage.contains('user does not exist')) {
+      return null; // No exception
+    }
+
+    return null; // For other errors too
   }
 
   Future<UserModel?> signup(UserModel user, String password) async {
@@ -257,19 +277,26 @@ class ApiService {
   }
 
   Future<bool> assignTechnician(String bookingId, String technicianId) async {
-    final token = await LocalStorage.getToken();
-    if (token == null) throw Exception('Unauthorized');
-
+    final token = await getToken();
     final response = await _client.post(
-      Uri.parse('${ApiConstants.baseUrl}/api/bookings/$bookingId/assign'),
+      Uri.parse(
+        '${ApiConstants.baseUrl}/api/bookings/$bookingId/assign',
+      ), // ✅ Corrected route
       headers: {
-        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'technicianId': technicianId}),
     );
 
-    return response.statusCode == 200;
+    if (response.statusCode == 200) {
+      showToast("Technician assigned successfully");
+      return true;
+    } else {
+      print("Failed to assign: ${response.body}");
+      showToast("Assignment failed");
+      return false;
+    }
   }
 
   Future<void> exportBookingsCSV() async {
@@ -320,6 +347,7 @@ class ApiService {
     );
 
     final data = jsonDecode(response.body);
+    print(data);
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(data['bookings'] ?? []);
     } else {
@@ -377,13 +405,16 @@ class ApiService {
     if (token == null) throw Exception('Unauthorized');
 
     final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}/api/due-services'),
+      Uri.parse('${ApiConstants.baseUrl}/api/technicians/all/assigned'),
       headers: {'Authorization': 'Bearer $token'},
     );
 
     final data = jsonDecode(response.body);
-    if (response.statusCode == 200) {
-      return List<Map<String, dynamic>>.from(data['dueServices'] ?? []);
+    print(data);
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      // ✅ Use correct key: 'bookings'
+      return List<Map<String, dynamic>>.from(data['bookings'] ?? []);
     } else {
       throw Exception(data['message'] ?? 'Failed to fetch due services');
     }
@@ -441,9 +472,407 @@ class ApiService {
     };
   }
 
+  Future<Map<String, dynamic>> submitReport({
+    required String customerName,
+    required String mobileNumber,
+    required String address,
+    required DateTime dateTime,
+    required String serviceType,
+    required List<Map<String, dynamic>> partsUsed,
+    required num receivedAmount, // includes id and quantity
+  }) async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.post(
+      Uri.parse('${ApiConstants.baseUrl}/api/reports'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'customerName': customerName,
+        'mobileNumber': mobileNumber,
+        'address': address,
+        'dateTime': dateTime.toIso8601String(),
+        'serviceType': serviceType,
+        'partsUsed': partsUsed,
+        "amountreceived": receivedAmount,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 201 && data['success'] == true) {
+      return data;
+    } else {
+      throw Exception(data['message'] ?? 'Report submission failed');
+    }
+  }
+
+  Future<Map<String, dynamic>> getReportByBookingId(String bookingId) async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/report/$bookingId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return data['report'];
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch report');
+    }
+  }
+
+  Future<Map<String, dynamic>> getTechnicianStats() async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/technicians/me/stats'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return {'completedJobs': data['totalCompletedJobs'] ?? 0};
+    } else {
+      throw Exception('Failed to fetch technician stats');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTechnicians() async {
+    final token = await LocalStorage.getToken();
+    final res = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/auth/technicians'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final json = jsonDecode(res.body);
+    return List<Map<String, dynamic>>.from(json['users']);
+  }
+
+  Future<bool> updateBookingStatus(String bookingId, String status) async {
+    final token = await getToken();
+    final response = await _client.patch(
+      Uri.parse('${ApiConstants.baseUrl}/api/bookings/$bookingId/status'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'status': status}),
+    );
+
+    return response.statusCode == 200;
+  }
+
+  Future<bool> submitBookingReport(String bookingId, String summary) async {
+    final token = await getToken();
+    final response = await _client.post(
+      Uri.parse('${ApiConstants.baseUrl}/api/bookings/$bookingId/report'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'summary': summary}),
+    );
+
+    return response.statusCode == 200;
+  }
+
+  Future<Map<String, dynamic>> getBookingById(String bookingId) async {
+    final token = await getToken();
+    final response = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/bookings/$bookingId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return data['booking'];
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch booking');
+    }
+  }
+
+  Future<bool> addPartsToBooking(
+    String bookingId,
+    List<Map<String, dynamic>> parts, // [{ partId, quantity }]
+  ) async {
+    final token = await getToken();
+    final response = await _client.post(
+      Uri.parse('${ApiConstants.baseUrl}/api/bookings/$bookingId/parts'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'parts': parts}),
+    );
+
+    return response.statusCode == 200;
+  }
+
+  Future<Map<String, dynamic>> getDashboardSummary() async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/dashboard'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return {
+        'totalServicesToday': data['totalServicesToday'],
+        'pendingServices': data['pendingServices'],
+        'dueServices': data['dueServices'],
+        'lowStockAlert': List<Map<String, dynamic>>.from(data['lowStockAlert']),
+      };
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch dashboard summary');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getServiceHistory({String? query}) async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final uri = Uri.parse('${ApiConstants.baseUrl}/api/history').replace(
+      queryParameters: query != null && query.isNotEmpty
+          ? {'query': query}
+          : null,
+    );
+
+    final response = await _client.get(
+      uri,
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(data['users']);
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch service history');
+    }
+  }
+
+  Future<Map<String, dynamic>> createPurchaseEntry({
+    required String vendorName,
+    required String billNumber,
+    required DateTime purchaseDate,
+    required String partId,
+    required int quantity,
+    required double costPerUnit,
+    String? notes,
+  }) async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.post(
+      Uri.parse('${ApiConstants.baseUrl}/api/purchase'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'vendorName': vendorName,
+        'billNumber': billNumber,
+        'purchaseDate': purchaseDate.toIso8601String(),
+        'partId': partId,
+        'quantity': quantity,
+        'costPerUnit': costPerUnit,
+        'notes': notes ?? '',
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+    return {
+      'success': data['success'] ?? false,
+      'message': data['message'] ?? 'Unknown response',
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> getStockParts() async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/stock'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<Map<String, dynamic>>.from(data['parts']);
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch stock');
+    }
+  }
+
+  Future<Map<String, dynamic>> addNewPart({
+    required String name,
+    String? description,
+    required double unitCost,
+    required int quantity,
+  }) async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.post(
+      Uri.parse('${ApiConstants.baseUrl}/api/stock'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'name': name,
+        'description': description,
+        'unitCost': unitCost,
+        'quantity': quantity,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 201 && data['success'] == true) {
+      return data['part'];
+    } else {
+      throw Exception(data['message'] ?? 'Failed to add part');
+    }
+  }
+
+  Future<void> increaseStock({
+    required String partId,
+    required int quantity,
+    required String reason,
+  }) async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.patch(
+      Uri.parse('${ApiConstants.baseUrl}/api/stock/$partId/add'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'quantity': quantity, 'reason': reason}),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode != 200 || data['success'] != true) {
+      throw Exception(data['message'] ?? 'Failed to increase stock');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllTechnicians() async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/technicians'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<Map<String, dynamic>>.from(data['technicians']);
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch technicians');
+    }
+  }
+
+  Future<void> createTechnician(String name, String phone) async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.post(
+      Uri.parse('${ApiConstants.baseUrl}/api/technicians'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'name': name, 'phone': phone}),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode != 201 || data['success'] != true) {
+      throw Exception(data['message'] ?? 'Failed to create technician');
+    }
+  }
+
+  Future<Map<String, dynamic>> getTechnicianProfile() async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/technicians/me'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return data['technician'];
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch profile');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTechnicianBookings() async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/technicians/me/bookings'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<Map<String, dynamic>>.from(data['bookings']);
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch bookings');
+    }
+  }
+
+  Future<int> getTechnicianCompletedJobsCount() async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/technicians/me/stats'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200 && data['success'] == true) {
+      return data['totalCompletedJobs'] as int;
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch stats');
+    }
+  }
+
   Future<void> logout() async {
     await LocalStorage.clearAll();
   }
 
   Future<String?> getToken() => LocalStorage.getToken();
+
+  Future<List<Map<String, dynamic>>> getAllReports() async {
+    final token = await getToken();
+    if (token == null) throw Exception("Unauthorized");
+
+    final response = await _client.get(
+      Uri.parse('${ApiConstants.baseUrl}/api/reports'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<Map<String, dynamic>>.from(data['reports']);
+    } else {
+      throw Exception(data['message'] ?? 'Failed to fetch reports');
+    }
+  }
 }
